@@ -30,19 +30,20 @@ pipeline {
             }
         }
 
-    post {
-        success {
-            echo """
-                Pipeline completed successfully!
-                Application deployed to ${params.ENVIRONMENT} environment.
-            """
-        }
-        failure {
-            echo "Pipeline failed. Check the logs for more information."
-        }
-        always {
-            // Clean up workspace
-            cleanWs()
+        post {
+            success {
+                echo """
+                    Pipeline completed successfully!
+                    Application deployed to ${params.ENVIRONMENT} environment.
+                """
+            }
+            failure {
+                echo "Pipeline failed. Check the logs for more information."
+            }
+            always {
+                // Clean up workspace
+                cleanWs()
+            }
         }
     }
 }
