@@ -14,6 +14,19 @@ pipeline {
     }
 
     stages {
+        stage('Check Docker') {
+            steps {
+                script {
+                    try {
+                        sh 'docker --version'
+                        sh 'docker info'
+                    } catch (Exception e) {
+                        error 'Docker is not available on this agent. Please install Docker or use an agent with Docker installed.'
+                    }
+                }
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
