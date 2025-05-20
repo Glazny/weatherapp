@@ -1,38 +1,39 @@
-# Build stage
-FROM node:18-alpine AS build
+# Base image
+FROM node:20-alpine AS build
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package.json and package-lock.json (if available)
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy all files
+# Copy the rest of the app
 COPY . .
 
-# Create production build
+# Build the app
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+# Use a minimal image for the final container
+FROM node:20-alpine AS runner
 
-# Copy custom nginx config if needed
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Set working directory
+WORKDIR /app
 
-# Copy built assets from build stage
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy only the necessary files for preview
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/dist ./dist
 
-# Add environment variable handling
-RUN apk add --no-cache bash
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# Install only production dependencies
+RUN npm install --omit=dev
 
-# Expose port
-EXPOSE 80
+# Install Vite CLI for preview
+RUN npm install -g vite
 
-# Start nginx
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"]
+# Expose Vite preview port
+EXPOSE 4173
+
+# Run the preview server
+CMD ["vite", "preview", "--host"]
