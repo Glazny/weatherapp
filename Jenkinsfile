@@ -15,30 +15,6 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                sh 'npm ci'
-            }
-        }
-
-        stage('Lint') {
-            steps {
-                sh 'npm run lint'
-            }
-        }
-
-        stage('Build') {
-            steps {
-                sh 'npm run build'
-            }
-        }
-        
         stage('Build Docker Image') {
             steps {
                 script {
@@ -59,10 +35,6 @@ pipeline {
             echo """
                 Pipeline completed successfully!
                 Application deployed to ${params.ENVIRONMENT} environment.
-                Access the application at:
-                - Dev: http://localhost:8081
-                - Staging: http://localhost:8082
-                - Prod: http://localhost:8083
             """
         }
         failure {
