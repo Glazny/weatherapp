@@ -14,18 +14,6 @@ pipeline {
     }
 
     stages {
-        stage('Check Docker') {
-            steps {
-                script {
-                    try {
-                        sh 'docker --version'
-                        sh 'docker info'
-                    } catch (Exception e) {
-                        error 'Docker is not available on this agent. Please install Docker or use an agent with Docker installed.'
-                    }
-                }
-            }
-        }
 
         stage('Checkout') {
             steps {
@@ -50,39 +38,21 @@ pipeline {
                 sh 'npm run build'
             }
         }
-
+        
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("${DOCKER_IMAGE}:${params.DOCKER_TAG}")
+                    docker.build(env.DOCKER_IMAGE)
                 }
             }
         }
-
-        stage('Deploy') {
+        stage('Run Docker Container') {
             steps {
                 script {
-                    def port = params.ENVIRONMENT == 'dev' ? '8081' : 
-                              params.ENVIRONMENT == 'staging' ? '8082' : '8083'
-                    
-                    def containerName = "${DOCKER_IMAGE}-${params.ENVIRONMENT}"
-                    
-                    // Stop and remove existing container if it exists
-                    sh "docker stop ${containerName} || true"
-                    sh "docker rm ${containerName} || true"
-                    
-                    // Run new container with environment variables
-                    sh """
-                        docker run -d \
-                            -p ${port}:80 \
-                            -e VITE_WEATHER_API_KEY=${VITE_WEATHER_API_KEY} \
-                            --name ${containerName} \
-                            ${DOCKER_IMAGE}:${params.DOCKER_TAG}
-                    """
+                    docker.image("${env.DOCKER_IMAGE}:latest").run("-p 3000:3000")
                 }
             }
         }
-    }
 
     post {
         success {
