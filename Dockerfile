@@ -14,7 +14,7 @@ RUN npm install
 COPY . .
 
 # Create .env file with the environment variable
-RUN echo "VITE_WEATHER_API_KEY=a0cbc16616ea48ea858134720252005" > .env
+RUN echo "VITE_WEATHER_API_KEY=da451eb50cba495380a193416252305" > .env
 
 # Build the app
 RUN npm run build
