@@ -12,9 +12,19 @@ pipeline {
         DOCKER_IMAGE = 'weatherapp'
         DOCKER_REGISTRY = 'your-registry'
         VITE_WEATHER_API_KEY = credentials('weather-api-key')
+        NODE_VERSION = '20.11.1'
     }
 
     stages {
+        stage('Setup Node.js') {
+            steps {
+                script {
+                    def nodeHome = tool name: 'NodeJS', type: 'jenkins.plugins.nodejs.tools.NodeJSInstallation'
+                    env.PATH = "${nodeHome}/bin:${env.PATH}"
+                }
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -23,32 +33,57 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm ci'
+                script {
+                    if (isUnix()) {
+                        sh 'npm ci'
+                    } else {
+                        bat 'npm ci'
+                    }
+                }
             }
         }
 
         stage('Lint') {
             steps {
-                sh 'npm run lint'
+                script {
+                    if (isUnix()) {
+                        sh 'npm run lint'
+                    } else {
+                        bat 'npm run lint'
+                    }
+                }
             }
         }
 
         stage('Type Check') {
             steps {
-                sh 'npx tsc --noEmit'
+                script {
+                    if (isUnix()) {
+                        sh 'npx tsc --noEmit'
+                    } else {
+                        bat 'npx tsc --noEmit'
+                    }
+                }
             }
         }
 
         stage('Build') {
             steps {
-                sh 'npm run build'
+                script {
+                    if (isUnix()) {
+                        sh 'npm run build'
+                    } else {
+                        bat 'npm run build'
+                    }
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("${env.DOCKER_REGISTRY}/${env.DOCKER_IMAGE}:${params.DOCKER_TAG}")
+                    def dockerImage = docker.build("${env.DOCKER_REGISTRY}/${env.DOCKER_IMAGE}:${params.DOCKER_TAG}", "--build-arg VITE_WEATHER_API_KEY=${env.VITE_WEATHER_API_KEY} .")
+                    env.DOCKER_IMAGE_BUILT = dockerImage.id
                 }
             }
         }
@@ -59,10 +94,13 @@ pipeline {
             }
             steps {
                 script {
-                    docker.image("${env.DOCKER_REGISTRY}/${env.DOCKER_IMAGE}:${params.DOCKER_TAG}")
-                        .inside {
+                    docker.image(env.DOCKER_IMAGE_BUILT).inside {
+                        if (isUnix()) {
                             sh 'npm run test'
+                        } else {
+                            bat 'npm run test'
                         }
+                    }
                 }
             }
         }
@@ -74,7 +112,12 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://registry.example.com', 'registry-credentials') {
-                        docker.image("${env.DOCKER_REGISTRY}/${env.DOCKER_IMAGE}:${params.DOCKER_TAG}").push()
+                        def image = docker.image("${env.DOCKER_REGISTRY}/${env.DOCKER_IMAGE}:${params.DOCKER_TAG}")
+                        image.push()
+                        
+                        if (env.ENVIRONMENT == 'prod') {
+                            image.push('latest')
+                        }
                     }
                 }
             }
@@ -90,7 +133,12 @@ pipeline {
                         --name weatherapp-${env.ENVIRONMENT} \
                         ${env.DOCKER_REGISTRY}/${env.DOCKER_IMAGE}:${params.DOCKER_TAG}
                     """
-                    sh deployCommand
+                    
+                    if (isUnix()) {
+                        sh deployCommand
+                    } else {
+                        bat deployCommand.replace('\\', '^')
+                    }
                 }
             }
         }
@@ -98,18 +146,36 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
-                    sh '''
-                        for i in {1..12}; do
-                            if curl -s http://localhost:4173 >/dev/null; then
-                                echo "Application is up and running"
+                    def healthCheck = """
+                        for /L %%i in (1,1,12) do (
+                            curl -s http://localhost:4173 > nul
+                            if !errorlevel! equ 0 (
+                                echo Application is up and running
                                 exit 0
-                            fi
-                            echo "Waiting for application to start..."
-                            sleep 5
-                        done
-                        echo "Application failed to start"
+                            )
+                            echo Waiting for application to start...
+                            timeout /t 5 /nobreak > nul
+                        )
+                        echo Application failed to start
                         exit 1
-                    '''
+                    """
+                    
+                    if (isUnix()) {
+                        sh '''
+                            for i in {1..12}; do
+                                if curl -s http://localhost:4173 >/dev/null; then
+                                    echo "Application is up and running"
+                                    exit 0
+                                fi
+                                echo "Waiting for application to start..."
+                                sleep 5
+                            done
+                            echo "Application failed to start"
+                            exit 1
+                        '''
+                    } else {
+                        bat healthCheck
+                    }
                 }
             }
         }
@@ -123,6 +189,15 @@ pipeline {
             echo "Pipeline failed!"
         }
         always {
+            script {
+                if (isUnix()) {
+                    sh 'docker ps -q --filter "name=weatherapp-${ENVIRONMENT}" | xargs -r docker stop'
+                    sh 'docker ps -aq --filter "name=weatherapp-${ENVIRONMENT}" | xargs -r docker rm'
+                } else {
+                    bat 'for /f %%i in (\'docker ps -q --filter "name=weatherapp-%ENVIRONMENT%"\') do docker stop %%i'
+                    bat 'for /f %%i in (\'docker ps -aq --filter "name=weatherapp-%ENVIRONMENT%"\') do docker rm %%i'
+                }
+            }
             cleanWs()
         }
     }
