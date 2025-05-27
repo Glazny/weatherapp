@@ -12,19 +12,9 @@ pipeline {
         DOCKER_IMAGE = 'weatherapp'
         DOCKER_REGISTRY = 'your-registry'
         VITE_WEATHER_API_KEY = credentials('weather-api-key')
-        NODE_VERSION = '20.11.1'
     }
 
     stages {
-        stage('Setup Node.js') {
-            steps {
-                script {
-                    def nodeHome = tool name: 'NodeJS', type: 'jenkins.plugins.nodejs.tools.NodeJSInstallation'
-                    env.PATH = "${nodeHome}/bin:${env.PATH}"
-                }
-            }
-        }
-
         stage('Checkout') {
             steps {
                 checkout scm
