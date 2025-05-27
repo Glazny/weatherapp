@@ -146,20 +146,6 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
-                    def healthCheck = """
-                        for /L %%i in (1,1,12) do (
-                            curl -s http://localhost:4173 > nul
-                            if !errorlevel! equ 0 (
-                                echo Application is up and running
-                                exit 0
-                            )
-                            echo Waiting for application to start...
-                            timeout /t 5 /nobreak > nul
-                        )
-                        echo Application failed to start
-                        exit 1
-                    """
-                    
                     if (isUnix()) {
                         sh '''
                             for i in {1..12}; do
@@ -174,7 +160,19 @@ pipeline {
                             exit 1
                         '''
                     } else {
-                        bat healthCheck
+                        bat '''
+                            for /L %%i in (1,1,12) do (
+                                curl -s http://localhost:4173 > nul
+                                if !errorlevel! equ 0 (
+                                    echo Application is up and running
+                                    exit 0
+                                )
+                                echo Waiting for application to start...
+                                timeout /t 5 /nobreak > nul
+                            )
+                            echo Application failed to start
+                            exit 1
+                        '''
                     }
                 }
             }
@@ -191,11 +189,15 @@ pipeline {
         always {
             script {
                 if (isUnix()) {
-                    sh 'docker ps -q --filter "name=weatherapp-${ENVIRONMENT}" | xargs -r docker stop'
-                    sh 'docker ps -aq --filter "name=weatherapp-${ENVIRONMENT}" | xargs -r docker rm'
+                    sh '''
+                        docker ps -q --filter "name=weatherapp-${ENVIRONMENT}" | xargs -r docker stop
+                        docker ps -aq --filter "name=weatherapp-${ENVIRONMENT}" | xargs -r docker rm
+                    '''
                 } else {
-                    bat 'for /f %%i in (\'docker ps -q --filter "name=weatherapp-%ENVIRONMENT%"\') do docker stop %%i'
-                    bat 'for /f %%i in (\'docker ps -aq --filter "name=weatherapp-%ENVIRONMENT%"\') do docker rm %%i'
+                    bat '''
+                        for /f "tokens=*" %%i in ('docker ps -q --filter "name=weatherapp-%ENVIRONMENT%"') do docker stop %%i
+                        for /f "tokens=*" %%i in ('docker ps -aq --filter "name=weatherapp-%ENVIRONMENT%"') do docker rm %%i
+                    '''
                 }
             }
             cleanWs()
