@@ -118,20 +118,18 @@ pipeline {
     }
 
     post {
-        success {
-            echo "✅ Pipeline completed successfully!"
-        }
-        failure {
-            echo "❌ Pipeline failed!"
-        }
-        always {
-            steps {
-                sh '''
-                    docker stop $(docker ps -q --filter "name=weatherapp-$ENVIRONMENT") || true
-                    docker rm $(docker ps -aq --filter "name=weatherapp-$ENVIRONMENT") || true
-                '''
-                cleanWs()
-            }
-        }
+    success {
+        echo "✅ Pipeline completed successfully!"
+    }
+    failure {
+        echo "❌ Pipeline failed!"
+    }
+    always {
+        sh '''
+            docker stop $(docker ps -q --filter "name=weatherapp-$ENVIRONMENT") || true
+            docker rm $(docker ps -aq --filter "name=weatherapp-$ENVIRONMENT") || true
+        '''
+        cleanWs()
     }
 }
+        }
