@@ -1,7 +1,7 @@
 pipeline {
     agent {
         node {
-            label 'windows' // upewnij się, że agent to Windows z Docker+WSL
+            label 'windows-docker'  // Updated label for Windows agents with Docker
         }
     }
 
@@ -51,10 +51,12 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh '''
-                    docker build -t $DOCKER_REGISTRY/$DOCKER_IMAGE:$DOCKER_TAG \
-                        --build-arg VITE_WEATHER_API_KEY=$VITE_WEATHER_API_KEY .
-                '''
+                script {
+                    bat """
+                        docker build -t %DOCKER_REGISTRY%/%DOCKER_IMAGE%:%DOCKER_TAG% ^
+                            --build-arg VITE_WEATHER_API_KEY=%VITE_WEATHER_API_KEY% .
+                    """
+                }
             }
         }
 
@@ -63,7 +65,9 @@ pipeline {
                 expression { params.RUN_TESTS }
             }
             steps {
-                sh 'docker run --rm $DOCKER_REGISTRY/$DOCKER_IMAGE:$DOCKER_TAG npm run test'
+                script {
+                    bat "docker run --rm %DOCKER_REGISTRY%/%DOCKER_IMAGE%:%DOCKER_TAG% npm run test"
+                }
             }
         }
 
@@ -73,63 +77,75 @@ pipeline {
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'registry-credentials', usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASS')]) {
-                    sh '''
-                        docker login $DOCKER_REGISTRY -u $REGISTRY_USER -p $REGISTRY_PASS
-                        docker push $DOCKER_REGISTRY/$DOCKER_IMAGE:$DOCKER_TAG
-                        if [ "$ENVIRONMENT" = "prod" ]; then
-                            docker push $DOCKER_REGISTRY/$DOCKER_IMAGE:latest
-                        fi
-                    '''
+                    script {
+                        bat """
+                            docker login %DOCKER_REGISTRY% -u %REGISTRY_USER% -p %REGISTRY_PASS%
+                            docker push %DOCKER_REGISTRY%/%DOCKER_IMAGE%:%DOCKER_TAG%
+                            if "%ENVIRONMENT%"=="prod" (
+                                docker push %DOCKER_REGISTRY%/%DOCKER_IMAGE%:latest
+                            )
+                        """
+                    }
                 }
             }
         }
 
         stage('Deploy') {
             steps {
-                sh '''
-                    docker run -d \
-                        -p 4173:4173 \
-                        -e VITE_WEATHER_API_KEY=$VITE_WEATHER_API_KEY \
-                        --name weatherapp-$ENVIRONMENT \
-                        $DOCKER_REGISTRY/$DOCKER_IMAGE:$DOCKER_TAG
-                '''
+                script {
+                    bat """
+                        docker run -d ^
+                            -p 4173:4173 ^
+                            -e VITE_WEATHER_API_KEY=%VITE_WEATHER_API_KEY% ^
+                            --name weatherapp-%ENVIRONMENT% ^
+                            %DOCKER_REGISTRY%/%DOCKER_IMAGE%:%DOCKER_TAG%
+                    """
+                }
             }
         }
 
         stage('Health Check') {
             steps {
-                sh '''
-                    count=0
-                    until curl -s http://localhost:4173 > /dev/null || [ $count -ge 12 ]; do
-                        echo "Waiting for application to start..."
-                        sleep 5
-                        count=$((count + 1))
-                    done
-
-                    if [ $count -ge 12 ]; then
-                        echo "Application failed to start"
-                        exit 1
-                    else
-                        echo "Application is up and running"
-                    fi
-                '''
+                script {
+                    bat """
+                        @echo off
+                        setlocal EnableDelayedExpansion
+                        set count=0
+                        :loop
+                        if !count! geq 12 (
+                            echo Application failed to start
+                            exit 1
+                        )
+                        curl -s http://localhost:4173 > nul 2>&1
+                        if !errorlevel! equ 0 (
+                            echo Application is up and running
+                            exit 0
+                        )
+                        echo Waiting for application to start...
+                        timeout /t 5 /nobreak > nul
+                        set /a count+=1
+                        goto loop
+                    """
+                }
             }
         }
     }
 
     post {
-    success {
-        echo "✅ Pipeline completed successfully!"
-    }
-    failure {
-        echo "❌ Pipeline failed!"
-    }
-    always {
-        sh '''
-            docker stop $(docker ps -q --filter "name=weatherapp-$ENVIRONMENT") || true
-            docker rm $(docker ps -aq --filter "name=weatherapp-$ENVIRONMENT") || true
-        '''
-        cleanWs()
+        success {
+            echo "✅ Pipeline completed successfully!"
+        }
+        failure {
+            echo "❌ Pipeline failed!"
+        }
+        always {
+            script {
+                bat """
+                    docker stop weatherapp-%ENVIRONMENT% 2>nul || exit /b 0
+                    docker rm weatherapp-%ENVIRONMENT% 2>nul || exit /b 0
+                """
+                cleanWs()
+            }
+        }
     }
 }
-        }
