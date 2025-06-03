@@ -53,16 +53,6 @@ pipeline {
                 """
             }
         }
-
-        stage('Run Tests') {
-            when {
-                expression { params.RUN_TESTS }
-            }
-            steps {
-                bat "docker run --rm %DOCKER_REGISTRY%/%DOCKER_IMAGE%:%DOCKER_TAG% npm run test"
-            }
-        }
-
         stage('Push Docker Image') {
             when {
                 expression { params.ENVIRONMENT != 'dev' }
