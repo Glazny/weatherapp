@@ -1,8 +1,5 @@
 pipeline {
-    agent {
-        node {
-            label 'linux'  // Updated for Linux agents
-        }
+    agent { any
     }
 
     parameters {
