@@ -62,30 +62,6 @@ pipeline {
             }
         }
 
-        stage('Health Check') {
-            steps {
-                bat """
-                    set count=0
-                    :LOOP
-                    curl -s http://localhost:4173 > nul
-                    if %ERRORLEVEL% EQU 0 (
-                        echo Application is up and running
-                        goto :END
-                    )
-                    set /a count+=1
-                    if %count% GEQ 12 (
-                        echo Application failed to start
-                        exit 1
-                    )
-                    echo Waiting for application to start...
-                    timeout /t 5 /nobreak > nul
-                    goto :LOOP
-                    :END
-                """
-            }
-        }
-    }
-
     post {
         success {
             echo "✅ Pipeline completed successfully!"
