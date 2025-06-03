@@ -15,6 +15,26 @@ pipeline {
 
     stages {
 
+        stage('Print Parameters') {
+            steps {
+                echo "Docker Tag: ${params.DOCKER_TAG}"
+                echo "Environment: ${params.ENVIRONMENT}"
+                echo "Run Tests: ${params.RUN_TESTS}"
+            }
+        }
+
+        stage('Echo Environment') {
+            steps {
+                echo "Deploying to ${params.ENVIRONMENT} environment"
+            }
+        }
+
+        stage('Check Workspace') {
+            steps {
+                sh 'ls -al'
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 script {
@@ -22,6 +42,7 @@ pipeline {
                 }
             }
         }
+
         stage('Run Docker Container') {
             steps {
                 script {
@@ -30,6 +51,10 @@ pipeline {
             }
         }
 
-
+        stage('Post-Build Cleanup') {
+            steps {
+                echo "Nothing to clean, but this is a placeholder for future cleanup steps."
+            }
+        }
     }
 }
