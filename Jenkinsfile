@@ -1,6 +1,5 @@
 pipeline {
-    agent { any
-    }
+    agent any
 
     parameters {
         string(name: 'DOCKER_TAG', defaultValue: 'latest', description: 'Tag for Docker image')
