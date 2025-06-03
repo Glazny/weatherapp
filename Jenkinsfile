@@ -53,32 +53,12 @@ pipeline {
                 """
             }
         }
-        stage('Push Docker Image') {
-            when {
-                expression { params.ENVIRONMENT != 'dev' }
-            }
+        
+        stage('Run Docker Container') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'registry-credentials', usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASS')]) {
-                    bat """
-                        docker login %DOCKER_REGISTRY% -u %REGISTRY_USER% -p %REGISTRY_PASS%
-                        docker push %DOCKER_REGISTRY%/%DOCKER_IMAGE%:%DOCKER_TAG%
-                        if "%ENVIRONMENT%"=="prod" (
-                            docker push %DOCKER_REGISTRY%/%DOCKER_IMAGE%:latest
-                        )
-                    """
+                script {
+                    docker.image("${env.DOCKER_IMAGE}:latest").run("-p 4173:4173")
                 }
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                bat """
-                    docker run -d ^
-                        -p 4173:4173 ^
-                        -e VITE_WEATHER_API_KEY=%VITE_WEATHER_API_KEY% ^
-                        --name weatherapp-%ENVIRONMENT% ^
-                        %DOCKER_REGISTRY%/%DOCKER_IMAGE%:%DOCKER_TAG%
-                """
             }
         }
 
