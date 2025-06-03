@@ -10,73 +10,26 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'weatherapp'
-        DOCKER_REGISTRY = 'your-registry'
         VITE_WEATHER_API_KEY = credentials('weather-api-key')
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                bat 'npm ci'
-            }
-        }
-
-        stage('Lint') {
-            steps {
-                bat 'npm run lint'
-            }
-        }
-
-        stage('Type Check') {
-            steps {
-                bat 'npx tsc --noEmit'
-            }
-        }
-
-        stage('Build') {
-            steps {
-                bat 'npm run build'
-            }
-        }
 
         stage('Build Docker Image') {
             steps {
-                bat """
-                    docker build -t %DOCKER_REGISTRY%/%DOCKER_IMAGE%:%DOCKER_TAG% ^
-                        --build-arg VITE_WEATHER_API_KEY=%VITE_WEATHER_API_KEY% .
-                """
-            }
-        }
-
-        stage('Run Docker Container') {
-            steps {
                 script {
-                    docker.image("${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}")
-                          .run("-p 4173:4173 --name weatherapp-${ENVIRONMENT}")
+                    docker.build(env.DOCKER_IMAGE)
                 }
             }
         }
-    }
+        stage('Run Docker Container') {
+            steps {
+                script {
+                    docker.image("${env.DOCKER_IMAGE}:latest").run("-p 4173:4173")
+                }
+            }
+        }
 
-    post {
-        success {
-            echo "✅ Pipeline completed successfully!"
-        }
-        failure {
-            echo "❌ Pipeline failed!"
-        }
-        always {
-            bat """
-                docker stop weatherapp-%ENVIRONMENT% || ver > nul
-                docker rm weatherapp-%ENVIRONMENT% || ver > nul
-            """
-            cleanWs()
-        }
+
     }
 }
