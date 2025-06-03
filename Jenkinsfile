@@ -53,15 +53,16 @@ pipeline {
                 """
             }
         }
-        
+
         stage('Run Docker Container') {
-    steps {
-        script {
-            docker.image("${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}")
-                .run("-p 4173:4173 --name weatherapp-${ENVIRONMENT}")
+            steps {
+                script {
+                    docker.image("${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}")
+                          .run("-p 4173:4173 --name weatherapp-${ENVIRONMENT}")
+                }
+            }
         }
     }
-}
 
     post {
         success {
